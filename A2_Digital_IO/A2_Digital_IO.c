@@ -24,12 +24,7 @@ void gpio_callback(uint gpio, uint32_t events)
         printf("GPIO %d is LOW\n", gpio);
         gpio_put(BLUE_LED_PIN, false);
     }
-    // You can also determine what caused the interrupt
-    // if (events & GPIO_IRQ_EDGE_RISE)
-    //     printf("Rising edge\n");
 
-    // if (events & GPIO_IRQ_EDGE_FALL)
-    //     printf("Falling edge\n");
 }
 
 // Initialize the GPIO for the LED

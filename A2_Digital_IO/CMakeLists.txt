@@ -35,7 +35,9 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(A2_Digital_IO A2_Digital_IO.c )
+# add_executable(A2_Digital_IO A2_Digital_IO.c )
+add_executable(A2_Digital_IO A2_Digital_IO_part_1.c )
+
 
 pico_set_program_name(A2_Digital_IO "A2_Digital_IO")
 pico_set_program_version(A2_Digital_IO "0.1")
