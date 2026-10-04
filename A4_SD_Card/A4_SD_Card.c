@@ -1,6 +1,7 @@
-// Lab 3 (A3_ADC): photocell and LM19 temperature sensor
-// on the ADC. Prints "time_s, lux, temp_C\r\n" once per second, in a format the
-// VS Code serial plotter reads (a header line naming the series, then numbers only).
+// Lab 4 (A4_SD_Card): Lab 3's photocell + LM19 readings,
+// logged to log.csv on an SD card (SPI0, wiring config below) and printed to USB serial.
+// Each line: "time_s, lux, temp_C\r\n", every SAMPLE_PERIOD_MS. f_sync after every line,
+// so pulling power loses at most the line being written.
 //
 // Wiring (Lab-3_ADC deck):
 //   Photocell: 3V3 OUT -> photocell (R1) -> GP26 -> 7.5k (R2) -> GND
@@ -12,6 +13,37 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
+#include "ff.h"         // FatFs: f_mount, f_open, f_puts, f_sync
+#include "f_util.h"     // FRESULT_str()
+#include "hw_config.h"
+
+
+// ---- SD card wiring (the library calls sd_get_num / sd_get_by_num to find it) ----
+// Breakout CLK -> GP18 (SPI0 SCK), DI -> GP19 (SPI0 TX, PICO), DO -> GP20 (SPI0 RX, POCI),
+// CS -> GP21, 3V -> 3V3(OUT), GND -> GND. Kept in this file for Lab 4; Lab 5 splits it out.
+static spi_t spi = {
+    .hw_inst = spi0,
+    .sck_gpio = 18,
+    .mosi_gpio = 19,    // the library still uses the old MOSI/MISO names
+    .miso_gpio = 20,
+    .baud_rate = 12500 * 1000   // 12.5 MHz: conservative for breadboard wiring
+};
+
+static sd_spi_if_t spi_if = {
+    .spi = &spi,
+    .ss_gpio = 21
+};
+
+static sd_card_t sd_card = {
+    .type = SD_IF_SPI,
+    .spi_if_p = &spi_if
+};
+
+size_t sd_get_num() { return 1; }
+
+sd_card_t *sd_get_by_num(size_t num) {
+    return (num == 0) ? &sd_card : NULL;
+}
 
 #define PHOTO_CELL_PIN 26
 #define PHOTO_CELL_ADC 0
@@ -34,8 +66,11 @@
 #define LUX_DARK 20.0f
 #define TEMP_HOT_C 30.0f
 
+// Time between samples. Change this to set your logging rate.
+#define SAMPLE_PERIOD_MS 1000
+
 // 1 = also print raw counts, volts, and ohms for checking against a multimeter.
-// Leave at 0 for the plotter: it only understands comma-separated numbers.
+// Serial only; the SD card always gets just the data line.
 #define DEBUG_PRINT 0
 
 // Photocell voltage -> photocell resistance (Ohm's law on the divider)
@@ -68,11 +103,29 @@ int main() {
     adc_gpio_init(PHOTO_CELL_PIN);   // high impedance, no pulls, digital input off
     adc_gpio_init(TEMP_PIN);
 
-    sleep_ms(2000);                     // give USB time to connect so the header isn't lost
-    printf("time_s, lux, temp_C\r\n");  // names the series for the plotter
+    sleep_ms(2000);   // time to open the Serial Monitor and see mount errors
 
+    // Mount the card and open the log file for appending
+    static FATFS fs;
+    FRESULT fr = f_mount(&fs, "", 1);
+    if (fr != FR_OK) {
+        printf("f_mount error: %s (%d)\r\n", FRESULT_str(fr), fr);
+        while (true) sleep_ms(1000);
+    }
+    static FIL fil;
+    fr = f_open(&fil, "log.csv", FA_OPEN_APPEND | FA_WRITE);
+    if (fr != FR_OK) {
+        printf("f_open error: %s (%d)\r\n", FRESULT_str(fr), fr);
+        while (true) sleep_ms(1000);
+    }
+    if (f_size(&fil) == 0) {
+        f_puts("time_s, lux, temp_C\r\n", &fil);   // header row, new file only
+    }
+
+    absolute_time_t next_sample = get_absolute_time();
     while (true) {
-        float t_s = to_ms_since_boot(get_absolute_time()) / 1000.0f;
+        // double, not float: a float can't hold milliseconds once the logger has run for hours
+        double t_s = to_ms_since_boot(get_absolute_time()) / 1000.0;
 
         adc_select_input(PHOTO_CELL_ADC);
         uint16_t photo_raw = adc_read();
@@ -85,8 +138,13 @@ int main() {
         float temp_v = temp_raw * conversion_factor;
         float temp_c = lm19_celsius(temp_v);
 
-        // Required output line
-        printf("%.3f, %.1f, %.1f\r\n", t_s, lux, temp_c);
+        // Same line to the Serial Monitor and to the SD card
+        char line[64];
+        snprintf(line, sizeof line, "%.3f, %.1f, %.1f\r\n", t_s, lux, temp_c);
+        printf("%s", line);
+        if (f_puts(line, &fil) < 0 || f_sync(&fil) != FR_OK) {
+            printf("# SD write failed\r\n");
+        }
 #if DEBUG_PRINT
         // Debug line for checking the math against a multimeter
         printf("# photo 0x%03X %.3f V %.0f ohm | temp 0x%03X %.3f V\r\n",
@@ -96,6 +154,9 @@ int main() {
         // Stretch: LED on when it's dark or hot
         gpio_put(LED_PIN, lux < LUX_DARK || temp_c > TEMP_HOT_C);
 
-        sleep_ms(1000);
+        // Wait until the next sample time. Unlike sleep_ms(SAMPLE_PERIOD_MS), this doesn't
+        // drift by however long the SD write took.
+        next_sample = delayed_by_ms(next_sample, SAMPLE_PERIOD_MS);
+        sleep_until(next_sample);
     }
 }
