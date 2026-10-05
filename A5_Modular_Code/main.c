@@ -1,5 +1,5 @@
 /*
- * A4_SD_Logging.c
+ * main.c
  * Environmental logger: reads light and temperature once per sample period,
  * prints each reading over USB serial, and appends it to log.csv on the SD card
  * as "time_s, lux, temp_C". A status LED lights when it's dark or hot.

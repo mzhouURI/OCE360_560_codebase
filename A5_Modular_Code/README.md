@@ -29,7 +29,7 @@ time_s, lux, temp_C
 
 | File | What it does |
 |---|---|
-| `A4_SD_Logging.c` | main loop: timing, formatting, status LED |
+| `main.c` | main loop: timing, formatting, status LED |
 | `sensors.c/.h` | photocell and LM19 readings in lux and °C |
 | `sd_logger.c/.h` | mount the card, append a line, sync it |
 

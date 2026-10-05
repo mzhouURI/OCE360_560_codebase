@@ -40,7 +40,7 @@ add_subdirectory(lib/pico_fatfs)
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(A4_SD_Logging
-        A4_SD_Logging.c
+        main.c
         sensors.c
         sd_logger.c)
 
