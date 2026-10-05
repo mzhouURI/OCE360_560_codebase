@@ -35,7 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(A3_ADC A3_ADC.c )
+add_executable(A3_ADC main.c)
 
 pico_set_program_name(A3_ADC "A3_ADC")
 pico_set_program_version(A3_ADC "0.1")
