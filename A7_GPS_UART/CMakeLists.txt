@@ -28,7 +28,7 @@ set(PICO_BOARD pico2 CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(A6_GPS_UART C CXX ASM)
+project(A7_GPS_UART C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
@@ -36,11 +36,11 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 # Tell CMake where to find the executable source file
-add_executable(A6_GPS_UART A6_GPS_UART.c)
-pico_enable_stdio_uart(A6_GPS_UART 0)
-pico_enable_stdio_usb(A6_GPS_UART 1)
+add_executable(A7_GPS_UART A7_GPS_UART.c)
+pico_enable_stdio_uart(A7_GPS_UART 0)
+pico_enable_stdio_usb(A7_GPS_UART 1)
 # Link to pico_stdlib (gpio, time, etc. functions)
-target_link_libraries(A6_GPS_UART pico_stdlib hardware_uart)
+target_link_libraries(A7_GPS_UART pico_stdlib hardware_uart)
 
 # Create map/bin/hex/uf2 files
-pico_add_extra_outputs(A6_GPS_UART)
+pico_add_extra_outputs(A7_GPS_UART)
