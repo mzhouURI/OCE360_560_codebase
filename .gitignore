@@ -1,0 +1,9 @@
+# VS Code settings are per machine: the Pico extension writes them on import
+.vscode/
+
+# build output
+build/
+
+# macOS
+.DS_Store
+Icon?
