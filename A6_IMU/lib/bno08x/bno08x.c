@@ -79,7 +79,10 @@
 #define RESET_TIMEOUT_MS 1000
 #define PRODUCT_ID_TIMEOUT_MS 500
 #define PRODUCT_ID_ATTEMPTS 3
-#define FEATURE_RESPONSE_TIMEOUT_MS 300
+// The 0xFC with the granted period comes after the sensor starts: 110 ms for a 10 or 20 ms
+// report, 190 ms for 50 ms, 343 ms for 100 ms (BNO085, 2026-10-19). So the wait grows with the period.
+#define FEATURE_RESPONSE_BASE_MS 300
+#define FEATURE_RESPONSE_PERIODS 4
 
 /** How each sensor report we keep is laid out. q_point 0 means "not kept". */
 typedef struct {
@@ -266,10 +269,13 @@ static void handle_control_report(const uint8_t *data, size_t length) {
         product_id_arrived = true;
     } else if (data[0] == REPORT_GET_FEATURE_RESPONSE && length >= SET_FEATURE_BYTES) {
         uint8_t report_id = data[1];
+        uint32_t period_us = read_uint32(&data[FEATURE_PERIOD_OFFSET]);
         if (report_id <= HIGHEST_REPORT_ID) {
-            granted_period_us[report_id] = read_uint32(&data[FEATURE_PERIOD_OFFSET]);
+            granted_period_us[report_id] = period_us;
         }
-        if (report_id == awaited_feature_id) {
+        // The first 0xFC after a Set Feature can say period 0 (sensor not started yet),
+        // and the real period follows in a second 0xFC (seen on a BNO085, 2026-10-19).
+        if (report_id == awaited_feature_id && period_us > 0) {
             awaited_feature_arrived = true;
         }
     }
@@ -454,7 +460,8 @@ bool bno08x_enable_report(uint8_t report_id, uint32_t period_us) {
     awaited_feature_arrived = false;
     const uint8_t request[] = {REPORT_GET_FEATURE_REQUEST, report_id};
     bool answered = send_packet(CHANNEL_CONTROL, request, sizeof request) == PICO_OK &&
-                    read_packets_until(&awaited_feature_arrived, FEATURE_RESPONSE_TIMEOUT_MS);
+                    read_packets_until(&awaited_feature_arrived,
+                                       FEATURE_RESPONSE_BASE_MS + FEATURE_RESPONSE_PERIODS * period_us / 1000);
     awaited_feature_id = -1;
     return answered && granted_period_us[report_id] > 0;
 }

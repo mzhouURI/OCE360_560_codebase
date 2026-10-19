@@ -54,5 +54,6 @@ MIT, see [LICENSE](LICENSE).
 
 ## Known issues
 
-- Not yet run on hardware (2026-10-10).
+- Tested on a Pico 2 with the Adafruit 4754 BNO085 (2026-10-19): rotation vector at 50 Hz, game rotation vector,
+  accelerometer and gyroscope, and recovery from an IMU reset. 400 kHz not tested.
 - The I2C bus runs at 100 kHz on purpose: the BNO080 stretches the clock.
